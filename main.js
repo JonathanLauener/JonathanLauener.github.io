@@ -1,5 +1,3 @@
-
-
 document.addEventListener("DOMContentLoaded", function () {
   // --- Terminal & fit addon ---
   const term = new Terminal({
@@ -16,6 +14,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   });
   const fitAddon = new FitAddon.FitAddon();
+
   // --- Fullscreen container ---
   const container = document.getElementById("terminal");
   container.style.width = "100vw";
@@ -23,12 +22,12 @@ document.addEventListener("DOMContentLoaded", function () {
   container.style.margin = "0";
   container.style.padding = "0";
   container.style.overflow = "hidden";
-  
+
   term.loadAddon(fitAddon);
   term.open(container);
-  fitAddon.fit(); // resize to fill viewport
-  container.style.visibility = "visible"; // show only after terminal is ready
-  
+  fitAddon.fit();
+  container.style.visibility = "visible";
+
   window.addEventListener("resize", () => {
     fitAddon.fit();
     screenHeight = term.rows - 1;
@@ -80,11 +79,10 @@ document.addEventListener("DOMContentLoaded", function () {
         let prefix = "";
         if (rnu) {
           if (i === cursorY) prefix = `${globalLine}`.padStart(4) + " ";
-          else prefix = `${Math.abs(globalLine - (topLineIndex + cursorY + 1))}`.padStart(4) + " ";
+          else prefix = `${globalLine}`.padStart(4) + " ";
         } else {
           prefix = "    ";
         }
-
         term.write(prefix + line + "\r\n");
       } else if (mode === "netrw" && topLineIndex + i === cursorIndex) {
         writeLineHighlight(line);
@@ -93,28 +91,23 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     });
 
-    // --- Draw the actual cursor (single-character overlay) ---
-// --- Draw the actual cursor (single-character overlay) ---
-if (mode === "file") {
-    const line = fileBuffer[topLineIndex + cursorY] || "";
-    // Clamp cursorX so it never goes out of line bounds
-    cursorX = Math.max(0, Math.min(cursorX, line.length - 1));
-    const charUnderCursor = line[cursorX] || " ";
-    
-    // FIX: Always account for the 4-space prefix (or 5 with rnu)
-    const prefixLength = rnu ? 5 : 4; // Changed from 0 to 4
-    
-    const cursorCol = prefixLength + cursorX + 1; // +1 because xterm columns start at 1
-    term.write(`\x1b[${cursorY + 1};${cursorCol}H`);
-    term.write(`\x1b[7m${charUnderCursor}\x1b[0m`);
-}
-
+    // --- Draw the actual cursor ---
+    if (mode === "file") {
+      const line = fileBuffer[topLineIndex + cursorY] || "";
+      cursorX = Math.max(0, Math.min(cursorX, line.length - 1));
+      const charUnderCursor = line[cursorX] || " ";
+      const prefixLength = rnu ? 5 : 0;
+      const cursorCol = prefixLength + cursorX + 1; // terminal cols start at 1
+      const cursorRow = cursorY + 1; // terminal rows start at 1
+      term.write(`\x1b[${cursorRow};${cursorCol}H`);
+      term.write(`\x1b[7m${charUnderCursor}\x1b[0m`);
+    }
 
     renderStatus("-- NORMAL --");
   }
 
   function renderStatus(text) {
-    term.write(`\x1b[${screenHeight + 1};1H`); // status line
+    term.write(`\x1b[${screenHeight + 1};1H`);
     term.write(text.padEnd(term.cols));
   }
 
@@ -143,7 +136,7 @@ if (mode === "file") {
     topLineIndex = 0;
     cursorIndex = 4;
     fileBuffer = [
-      `"~/portfolio" [netrw v1.0]`,
+      "~/portfolio [netrw v1.0]",
       "  Sorted by      name",
       "  Quick Help: j/k:move <Enter>:open :q:quit",
       "",
@@ -172,14 +165,24 @@ if (mode === "file") {
   }
 
   // --- File movement ---
-  function moveDownFile() { const globalCursor = topLineIndex + cursorY;
-    if (globalCursor < fileBuffer.length-1){ if(cursorY < screenHeight-1) cursorY++; else topLineIndex++; }
-    adjustCursorX(); renderViewport();
+  function moveDownFile() {
+    const globalCursor = topLineIndex + cursorY;
+    if (globalCursor < fileBuffer.length-1) {
+      if(cursorY < screenHeight-1) cursorY++;
+      else topLineIndex++;
+    }
+    adjustCursorX();
+    renderViewport();
   }
 
-  function moveUpFile() { const globalCursor = topLineIndex + cursorY;
-    if(globalCursor>0){ if(cursorY>0) cursorY--; else topLineIndex--; }
-    adjustCursorX(); renderViewport();
+  function moveUpFile() {
+    const globalCursor = topLineIndex + cursorY;
+    if(globalCursor>0){
+      if(cursorY>0) cursorY--;
+      else topLineIndex--;
+    }
+    adjustCursorX();
+    renderViewport();
   }
 
   function moveRightFile(){ const line=fileBuffer[topLineIndex+cursorY]||""; if(cursorX<line.length-1) cursorX++; renderViewport(); }
