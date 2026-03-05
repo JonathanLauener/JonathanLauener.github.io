@@ -47,6 +47,26 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   }
 
+  function writeColor(text, hex) {
+  const rgb = hexToRgb(hex);
+  term.write(`\x1b[38;2;${rgb.r};${rgb.g};${rgb.b}m${text}\x1b[0m`);
+}
+
+function writeLineHighlight(text) {
+  // Reverse highlight TokyoNight selection
+  term.writeln(
+    `\x1b[48;2;51;70;124m\x1b[38;2;192;202;245m  ${text}\x1b[0m`
+  );
+}
+
+function hexToRgb(hex) {
+  const bigint = parseInt(hex.slice(1), 16);
+  return {
+    r: (bigint >> 16) & 255,
+    g: (bigint >> 8) & 255,
+    b: bigint & 255
+  };
+}
   function renderFile(content) {
     term.clear();
     term.scrollToTop();
@@ -168,3 +188,6 @@ function renderExplorer() {
   // Initialize
   loadFileList().then(() => openFile("home.md"));
 });
+
+
+
