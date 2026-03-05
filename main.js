@@ -17,10 +17,11 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // --- Viewport settings ---
   const screenHeight = 24; // visible rows
+  const screenWidth = 80;  // approximate width for horizontal movement
   let fileBuffer = [];     // all lines of current file/explorer
   let topLineIndex = 0;    // first visible line
-  let cursorY = 0;         // cursor row in viewport
-  let cursorX = 0;         // optional horizontal movement
+  let cursorY = 0;         // cursor row inside viewport
+  let cursorX = 0;         // cursor column inside line
   let cursorIndex = 0;     // netrw selected line in fileBuffer
   let mode = "file";       // file | netrw | command
   let commandBuffer = "";
@@ -56,7 +57,13 @@ document.addEventListener("DOMContentLoaded", function () {
     const visibleLines = fileBuffer.slice(topLineIndex, topLineIndex + screenHeight);
     visibleLines.forEach((line, i) => {
       if (mode === "file" && i === cursorY) {
-        writeLineHighlight(line);
+        // Render line with single-character cursor at cursorX
+        const left = line.slice(0, cursorX);
+        const charUnderCursor = line[cursorX] || " ";
+        const right = line.slice(cursorX + 1);
+        term.write(left);
+        term.write(`\x1b[7m${charUnderCursor}\x1b[0m`); // reverse video for cursor
+        term.writeln(right);
       } else if (mode === "netrw" && topLineIndex + i === cursorIndex) {
         writeLineHighlight(line);
       } else {
@@ -87,6 +94,7 @@ document.addEventListener("DOMContentLoaded", function () {
       fileBuffer = [`Error opening file: ${filename}`];
       topLineIndex = 0;
       cursorY = 0;
+      cursorX = 0;
       renderViewport();
     }
   }
@@ -129,29 +137,55 @@ document.addEventListener("DOMContentLoaded", function () {
         fileBuffer = [`File not found: ${filename}`];
         topLineIndex = 0;
         cursorY = 0;
+        cursorX = 0;
         renderViewport();
       }
       return;
     }
   }
 
-  // --- Vim-style cursor movement in file ---
+  // --- Vim-style cursor movement in file mode ---
   function moveDownFile() {
-    if (cursorY < screenHeight - 1 && topLineIndex + cursorY + 1 < fileBuffer.length) {
-      cursorY++;
-    } else if (topLineIndex + screenHeight < fileBuffer.length) {
-      topLineIndex++;
+    const globalCursor = topLineIndex + cursorY;
+    if (globalCursor < fileBuffer.length - 1) {
+      if (cursorY < screenHeight - 1) {
+        cursorY++;
+      } else {
+        topLineIndex++;
+      }
     }
+    adjustCursorX();
     renderViewport();
   }
 
   function moveUpFile() {
-    if (cursorY > 0) {
-      cursorY--;
-    } else if (topLineIndex > 0) {
-      topLineIndex--;
+    const globalCursor = topLineIndex + cursorY;
+    if (globalCursor > 0) {
+      if (cursorY > 0) {
+        cursorY--;
+      } else {
+        topLineIndex--;
+      }
     }
+    adjustCursorX();
     renderViewport();
+  }
+
+  function moveRightFile() {
+    const line = fileBuffer[topLineIndex + cursorY] || "";
+    if (cursorX < line.length - 1) cursorX++;
+    renderViewport();
+  }
+
+  function moveLeftFile() {
+    if (cursorX > 0) cursorX--;
+    renderViewport();
+  }
+
+  function adjustCursorX() {
+    const line = fileBuffer[topLineIndex + cursorY] || "";
+    if (cursorX >= line.length) cursorX = line.length - 1;
+    if (cursorX < 0) cursorX = 0;
   }
 
   // --- NetRW scrolling ---
@@ -173,7 +207,8 @@ document.addEventListener("DOMContentLoaded", function () {
       if (key === ":") enterCommandMode();
       if (key === "j") moveDownFile();
       if (key === "k") moveUpFile();
-      // h/l can be added for horizontal movement later
+      if (key === "h") moveLeftFile();
+      if (key === "l") moveRightFile();
     } else if (mode === "netrw") {
       if (key === "j") moveDown();
       if (key === "k") moveUp();
