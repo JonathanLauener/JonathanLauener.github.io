@@ -1,4 +1,8 @@
+import { Terminal } from 'xterm';
+import { FitAddon } from 'xterm-addon-fit';
+
 document.addEventListener("DOMContentLoaded", function () {
+  // --- Terminal & fit addon ---
   const term = new Terminal({
     cursorBlink: true,
     fontFamily: "JetBrains Mono, monospace",
@@ -12,7 +16,10 @@ document.addEventListener("DOMContentLoaded", function () {
       selectionBackground: "#33467C"
     }
   });
+  const fitAddon = new FitAddon();
+  term.loadAddon(fitAddon);
 
+  // --- Fullscreen container ---
   const container = document.getElementById("terminal");
   container.style.width = "100vw";
   container.style.height = "100vh";
@@ -21,25 +28,16 @@ document.addEventListener("DOMContentLoaded", function () {
   container.style.overflow = "hidden";
 
   term.open(container);
-
-  // --- Dynamically resize terminal to fill page ---
-  function fitTerminal() {
-    const cols = Math.floor(container.clientWidth / term._core._renderService.dimensions.actualCellWidth);
-    const rows = Math.floor(container.clientHeight / term._core._renderService.dimensions.actualCellHeight);
-    term.resize(cols, rows);
-  }
+  fitAddon.fit(); // resize to fill viewport
 
   window.addEventListener("resize", () => {
-    fitTerminal();
-    renderViewport(); // re-render viewport on resize
+    fitAddon.fit();
+    screenHeight = term.rows - 1;
+    renderViewport();
   });
 
-  // Call once to fit initially
-  setTimeout(fitTerminal, 100);
-
-  // --- Viewport settings ---
-  let screenHeight = 24;
-  const screenWidth = 80;
+  // --- Viewport & file state ---
+  let screenHeight = term.rows - 1;
   let fileBuffer = [];
   let topLineIndex = 0;
   let cursorY = 0;
@@ -48,7 +46,6 @@ document.addEventListener("DOMContentLoaded", function () {
   let mode = "file"; // file | netrw | command
   let commandBuffer = "";
   let currentFile = "home.md";
-
   let rnu = false;
 
   const files = [
@@ -59,6 +56,7 @@ document.addEventListener("DOMContentLoaded", function () {
     "projects/project2.md"
   ];
 
+  // --- Helper functions ---
   function writeLineHighlight(text) {
     term.writeln(`\x1b[48;2;51;70;124m\x1b[38;2;192;202;245m${text}\x1b[0m`);
   }
@@ -73,10 +71,8 @@ document.addEventListener("DOMContentLoaded", function () {
     term.write(`\x1b[38;2;${rgb.r};${rgb.g};${rgb.b}m${text}\x1b[0m`);
   }
 
+  // --- Render viewport ---
   function renderViewport() {
-    // Update screenHeight dynamically if terminal resized
-    screenHeight = term.rows - 1;
-
     term.clear();
     const visibleLines = fileBuffer.slice(topLineIndex, topLineIndex + screenHeight);
     visibleLines.forEach((line, i) => {
@@ -90,25 +86,29 @@ document.addEventListener("DOMContentLoaded", function () {
           prefix = "    ";
         }
 
-        const left = line.slice(0, cursorX);
-        const charUnderCursor = (i === cursorY ? line[cursorX] || " " : line[cursorX] || " ");
-        const right = line.slice(cursorX + 1);
-
-        term.write(prefix);
-        if (i === cursorY) term.write(`\x1b[7m${charUnderCursor}\x1b[0m`);
-        term.writeln(right);
+        term.write(prefix + line + "\r\n");
       } else if (mode === "netrw" && topLineIndex + i === cursorIndex) {
         writeLineHighlight(line);
       } else {
         term.writeln(line);
       }
     });
+
+    // --- Draw the actual cursor (single-character overlay) ---
+    if (mode === "file") {
+      const line = fileBuffer[topLineIndex + cursorY] || "";
+      const charUnderCursor = line[cursorX] || " ";
+      term.write(`\x1b[${cursorY + 1};${(rnu?6:1) + cursorX}H`); // move cursor
+      term.write(`\x1b[7m${charUnderCursor}\x1b[0m`);
+      term.write(`\x1b[${screenHeight + 1};1H`); // move back to status line row
+    }
+
     renderStatus("-- NORMAL --");
   }
 
   function renderStatus(text) {
-    term.writeln("");
-    term.write(text);
+    term.write(`\x1b[${screenHeight + 1};1H`); // status line
+    term.write(text.padEnd(term.cols));
   }
 
   async function openFile(filename) {
@@ -175,7 +175,7 @@ document.addEventListener("DOMContentLoaded", function () {
     adjustCursorX(); renderViewport();
   }
 
-  function moveRightFile(){ const line = fileBuffer[topLineIndex+cursorY]||""; if(cursorX<line.length-1) cursorX++; renderViewport(); }
+  function moveRightFile(){ const line=fileBuffer[topLineIndex+cursorY]||""; if(cursorX<line.length-1) cursorX++; renderViewport(); }
   function moveLeftFile(){ if(cursorX>0) cursorX--; renderViewport(); }
   function adjustCursorX(){ const line=fileBuffer[topLineIndex+cursorY]||""; if(cursorX>=line.length) cursorX=line.length-1; if(cursorX<0) cursorX=0; }
 
