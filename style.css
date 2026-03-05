@@ -1,12 +1,18 @@
 html, body {
   height: 100%;
   margin: 0;
-  overflow: hidden;   /* 🚀 disables page scrolling */
-  background: #000;
+  overflow: hidden;
+  background: #1a1b26;
 }
 
 #terminal {
   height: 100vh;
   width: 100vw;
-  overflow: hidden;   /* 🚀 disables sideways scroll */
+}
+
+.xterm-viewport {
+  overflow: hidden !important;
+}
+.xterm-screen canvas {
+  image-rendering: pixelated;
 }
