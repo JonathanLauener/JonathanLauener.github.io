@@ -1,6 +1,8 @@
-import { EditorView, basicSetup } from "https://esm.sh/@codemirror/basic-setup";
-import { EditorState } from "https://esm.sh/@codemirror/state";
-import { vim } from "https://esm.sh/@replit/codemirror-vim";
+import { Terminal } from '@xterm/xterm';
+
+const term = new Terminal();
+
+term.open(document.getElementById('xterm-container'));
 
 const files = {
   "about.md": `
