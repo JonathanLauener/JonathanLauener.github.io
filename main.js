@@ -60,7 +60,7 @@ document.addEventListener("DOMContentLoaded", function () {
         term.writeln(line);
       }
     });
-    renderStatus("-- NORMAL --\n");
+    renderStatus("\n-- NORMAL --\n");
   }
 
   function renderStatus(text) {
