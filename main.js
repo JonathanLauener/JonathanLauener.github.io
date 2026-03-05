@@ -17,7 +17,9 @@ document.addEventListener("DOMContentLoaded", function () {
   });
   const fitAddon = new FitAddon.FitAddon();
   term.loadAddon(fitAddon);
-
+  term.open(container);
+  fitAddon.fit();
+  container.style.visibility = "visible"; // show only after terminal is ready
   // --- Fullscreen container ---
   const container = document.getElementById("terminal");
   container.style.width = "100vw";
