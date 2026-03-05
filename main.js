@@ -100,7 +100,6 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     }
 
-    mode = "file";
   }
 
   term.onData((key) => {
