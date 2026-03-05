@@ -53,6 +53,7 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     renderStatus("-- NORMAL --");
+    term.scrollToTop();
   }
 
   function renderExplorer() {
@@ -66,6 +67,7 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     renderStatus("-- NORMAL --");
+    term.scrollToTop();
   }
 
   function renderStatus(text) {
