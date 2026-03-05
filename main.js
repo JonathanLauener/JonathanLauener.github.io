@@ -1,91 +1,100 @@
+document.addEventListener("DOMContentLoaded", function () {
+  const term = new Terminal({
+    cursorBlink: false,
+    fontFamily: "monospace",
+    fontSize: 16,
+    theme: {
+      background: "#000000",
+      foreground: "#ffffff"
+    }
+  });
 
-const term = new Terminal({
-  cursorBlink: true,
-  fontFamily: "monospace",
-  fontSize: 16,
-  theme: {
-    background: "#000000",
-    foreground: "#00ff00"
+  term.open(document.getElementById("terminal"));
+
+  const files = [
+    "../",
+    "about.md",
+    "projects.md",
+    "contact.md"
+  ];
+
+  const fileContents = {
+    "about.md": "Hi, I'm a developer.\nWelcome to my portfolio.",
+    "projects.md": "Project 1\nProject 2\nProject 3",
+    "contact.md": "email@example.com"
+  };
+
+  let mode = "netrw";
+  let cursorIndex = 0;
+
+  function renderExplorer() {
+    term.clear();
+    term.writeln('"~/portfolio" [netrw]');
+    term.writeln("");
+
+    files.forEach((file, index) => {
+      if (index === cursorIndex) {
+        term.writeln("> " + file);
+      } else {
+        term.writeln("  " + file);
+      }
+    });
+
+    term.writeln("");
+    term.write("-- NORMAL --");
   }
-});
 
-term.open(document.getElementById("terminal"));
+  function renderFile(filename) {
+    term.clear();
+    term.writeln(`"${filename}"`);
+    term.writeln("");
 
-term.write("Welcome to my portfolio terminal\r\n");
-term.write("Type 'help' to begin.\r\n\r\n");
+    const lines = fileContents[filename].split("\n");
+    lines.forEach(line => term.writeln(line));
 
-prompt();
-
-let currentLine = "";
-
-function prompt() {
-  term.write("\r\n$ ");
-}
-
-term.onData((key) => {
-  const charCode = key.charCodeAt(0);
-
-  // Enter
-  if (charCode === 13) {
-    handleCommand(currentLine.trim());
-    currentLine = "";
-    prompt();
+    term.writeln("");
+    term.write("-- NORMAL -- (press q to go back)");
   }
 
-  // Backspace
-  else if (charCode === 127) {
-    if (currentLine.length > 0) {
-      currentLine = currentLine.slice(0, -1);
-      term.write("\b \b");
+  renderExplorer();
+
+  term.onData((key) => {
+    if (mode === "netrw") {
+      handleExplorerKeys(key);
+    } else if (mode === "file") {
+      handleFileKeys(key);
+    }
+  });
+
+  function handleExplorerKeys(key) {
+    if (key === "j") {
+      if (cursorIndex < files.length - 1) {
+        cursorIndex++;
+        renderExplorer();
+      }
+    }
+
+    if (key === "k") {
+      if (cursorIndex > 0) {
+        cursorIndex--;
+        renderExplorer();
+      }
+    }
+
+    if (key === "\r") { // Enter
+      const selected = files[cursorIndex];
+
+      if (selected === "../") return;
+
+      mode = "file";
+      renderFile(selected);
     }
   }
 
-  // Regular character
-  else {
-    currentLine += key;
-    term.write(key);
+  function handleFileKeys(key) {
+    if (key === "q") {
+      mode = "netrw";
+      renderExplorer();
+    }
   }
 });
-
-function handleCommand(command) {
-  switch (command) {
-    case "help":
-      term.write("\r\nAvailable commands:");
-      term.write("\r\nls - list files");
-      term.write("\r\ncat <file> - open file");
-      term.write("\r\nclear - clear screen");
-      break;
-
-    case "ls":
-      term.write("\r\nabout.txt");
-      term.write("\r\nprojects.txt");
-      term.write("\r\ncontact.txt");
-      break;
-
-    case "clear":
-      term.clear();
-      break;
-
-    default:
-      if (command.startsWith("cat ")) {
-        const file = command.split(" ")[1];
-        openFile(file);
-      } else if (command !== "") {
-        term.write(`\r\nCommand not found: ${command}`);
-      }
-  }
-}
-
-function openFile(file) {
-  const files = {
-    "about.txt": "Hi, I'm a developer...",
-    "projects.txt": "Project 1\nProject 2",
-    "contact.txt": "email@example.com"
-  };
-
-  if (files[file]) {
-    term.write(`\r\n${files[file]}`);
-  } else {
-    term.write(`\r\nFile not found: ${file}`);
-  }
-}
