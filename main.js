@@ -1,16 +1,17 @@
 document.addEventListener("DOMContentLoaded", function () {
-  const term = new Terminal({
-    cursorBlink: true,
-    fontFamily: "JetBrains Mono, monospace",
-    fontSize: 15,
-    scrollback: 0,
-    theme: {
-      background: "#1a1b26",
-      foreground: "#c0caf5",
-      cursor: "#c0caf5",
-      selectionBackground: "#33467C"
-    }
-  });
+const term = new Terminal({
+  cursorBlink: true,
+  fontFamily: "JetBrains Mono, monospace",
+  fontSize: 15,
+  convertEol: true,
+  scrollback: 1000, // enough lines to scroll up/down
+  theme: {
+    background: "#1a1b26",
+    foreground: "#c0caf5",
+    cursor: "#c0caf5",
+    selectionBackground: "#33467C"
+  }
+});
 
   term.open(document.getElementById("terminal"));
 
