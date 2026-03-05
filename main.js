@@ -1,13 +1,17 @@
 document.addEventListener("DOMContentLoaded", function () {
   const term = new Terminal({
-    cursorBlink: false,
-    fontFamily: "monospace",
-    fontSize: 16,
+    cursorBlink: true,
+    fontFamily: "JetBrains Mono, monospace",
+    fontSize: 15,
+    scrollback: 0,
     theme: {
-      background: "#000000",
-      foreground: "#ffffff"
+      background: "#1a1b26",
+      foreground: "#c0caf5",
+      cursor: "#c0caf5",
+      selectionBackground: "#33467C"
     }
   });
+});
 
   term.open(document.getElementById("terminal"));
 
