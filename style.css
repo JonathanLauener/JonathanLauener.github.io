@@ -1,15 +1,17 @@
 html, body {
-  height: 100%;
   margin: 0;
-  overflow: hidden; /* hide page scrollbar */
-  background: #1a1b26;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
 }
 
 #terminal {
-  height: 100vh;
   width: 100vw;
-  overflow-y: auto;   /* allow vertical scrolling */
-  overflow-x: hidden; /* prevent sideways scrolling */
+  height: 100vh;
+  position: absolute;
+  top: 0;
+  left: 0;
+  visibility: hidden; /* hide until ready */
 }
 
 .xterm-screen canvas {
