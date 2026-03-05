@@ -1,4 +1,4 @@
-import { FitAddon } from 'xterm-addon-fit';
+
 
 document.addEventListener("DOMContentLoaded", function () {
   // --- Terminal & fit addon ---
