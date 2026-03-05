@@ -15,7 +15,7 @@ document.addEventListener("DOMContentLoaded", function () {
       selectionBackground: "#33467C"
     }
   });
-  const fitAddon = new FitAddon();
+  const fitAddon = new FitAddon.FitAddon();
   term.loadAddon(fitAddon);
 
   // --- Fullscreen container ---
