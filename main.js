@@ -18,14 +18,16 @@ document.addEventListener("DOMContentLoaded", function () {
   // --- Viewport settings ---
   const screenHeight = 24; // visible rows
   const screenWidth = 80;  // approximate width for horizontal movement
-  let fileBuffer = [];     // all lines of current file/explorer
-  let topLineIndex = 0;    // first visible line
-  let cursorY = 0;         // cursor row inside viewport
-  let cursorX = 0;         // cursor column inside line
-  let cursorIndex = 0;     // netrw selected line in fileBuffer
-  let mode = "file";       // file | netrw | command
+  let fileBuffer = [];
+  let topLineIndex = 0;
+  let cursorY = 0;
+  let cursorX = 0;
+  let cursorIndex = 0; // netrw selected line
+  let mode = "file"; // file | netrw | command
   let commandBuffer = "";
   let currentFile = "home.md";
+
+  let rnu = false; // relative line numbers flag
 
   // --- Hardcoded file list ---
   const files = [
@@ -36,12 +38,7 @@ document.addEventListener("DOMContentLoaded", function () {
     "projects/project2.md"
   ];
 
-  // --- TokyoNight color helpers ---
-  function writeColor(text, hex) {
-    const rgb = hexToRgb(hex);
-    term.write(`\x1b[38;2;${rgb.r};${rgb.g};${rgb.b}m${text}\x1b[0m`);
-  }
-
+  // --- Color helpers ---
   function writeLineHighlight(text) {
     term.writeln(`\x1b[48;2;51;70;124m\x1b[38;2;192;202;245m${text}\x1b[0m`);
   }
@@ -51,18 +48,32 @@ document.addEventListener("DOMContentLoaded", function () {
     return { r: (bigint >> 16) & 255, g: (bigint >> 8) & 255, b: bigint & 255 };
   }
 
+  function writeColor(text, hex) {
+    const rgb = hexToRgb(hex);
+    term.write(`\x1b[38;2;${rgb.r};${rgb.g};${rgb.b}m${text}\x1b[0m`);
+  }
+
   // --- Render viewport ---
   function renderViewport() {
     term.clear();
     const visibleLines = fileBuffer.slice(topLineIndex, topLineIndex + screenHeight);
     visibleLines.forEach((line, i) => {
-      if (mode === "file" && i === cursorY) {
-        // Render line with single-character cursor at cursorX
+      if (mode === "file") {
+        const globalLine = topLineIndex + i + 1;
+        let prefix = "";
+        if (rnu) {
+          if (i === cursorY) prefix = `${globalLine}`.padStart(4) + " ";
+          else prefix = `${Math.abs(globalLine - (topLineIndex + cursorY + 1))}`.padStart(4) + " ";
+        } else {
+          prefix = "    "; // 4 spaces if rnu off
+        }
+
         const left = line.slice(0, cursorX);
-        const charUnderCursor = line[cursorX] || " ";
+        const charUnderCursor = (i === cursorY ? line[cursorX] || " " : line[cursorX] || " ");
         const right = line.slice(cursorX + 1);
-        term.write(left);
-        term.write(`\x1b[7m${charUnderCursor}\x1b[0m`); // reverse video for cursor
+
+        term.write(prefix);
+        if (i === cursorY) term.write(`\x1b[7m${charUnderCursor}\x1b[0m`);
         term.writeln(right);
       } else if (mode === "netrw" && topLineIndex + i === cursorIndex) {
         writeLineHighlight(line);
@@ -78,7 +89,7 @@ document.addEventListener("DOMContentLoaded", function () {
     term.write(text);
   }
 
-  // --- Load a file ---
+  // --- Load file ---
   async function openFile(filename) {
     try {
       const response = await fetch(filename);
@@ -99,11 +110,11 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   }
 
-  // --- Load netrw explorer ---
+  // --- Netrw ---
   function openExplorer() {
     mode = "netrw";
     topLineIndex = 0;
-    cursorIndex = 4; // first file line selected
+    cursorIndex = 4;
     fileBuffer = [
       `"~/portfolio" [netrw v1.0]`,
       "  Sorted by      name",
@@ -142,17 +153,26 @@ document.addEventListener("DOMContentLoaded", function () {
       }
       return;
     }
+    if (cmd === "set rnu") {
+      rnu = true;
+      mode = "file";
+      renderViewport();
+      return;
+    }
+    if (cmd === "set nornu") {
+      rnu = false;
+      mode = "file";
+      renderViewport();
+      return;
+    }
   }
 
-  // --- Vim-style cursor movement in file mode ---
+  // --- File mode movement ---
   function moveDownFile() {
     const globalCursor = topLineIndex + cursorY;
     if (globalCursor < fileBuffer.length - 1) {
-      if (cursorY < screenHeight - 1) {
-        cursorY++;
-      } else {
-        topLineIndex++;
-      }
+      if (cursorY < screenHeight - 1) cursorY++;
+      else topLineIndex++;
     }
     adjustCursorX();
     renderViewport();
@@ -161,11 +181,8 @@ document.addEventListener("DOMContentLoaded", function () {
   function moveUpFile() {
     const globalCursor = topLineIndex + cursorY;
     if (globalCursor > 0) {
-      if (cursorY > 0) {
-        cursorY--;
-      } else {
-        topLineIndex--;
-      }
+      if (cursorY > 0) cursorY--;
+      else topLineIndex--;
     }
     adjustCursorX();
     renderViewport();
@@ -188,7 +205,7 @@ document.addEventListener("DOMContentLoaded", function () {
     if (cursorX < 0) cursorX = 0;
   }
 
-  // --- NetRW scrolling ---
+  // --- Netrw movement ---
   function moveDown() {
     if (cursorIndex < fileBuffer.length - 1) cursorIndex++;
     if (cursorIndex >= topLineIndex + screenHeight) topLineIndex++;
@@ -201,7 +218,7 @@ document.addEventListener("DOMContentLoaded", function () {
     renderViewport();
   }
 
-  // --- Keyboard handling ---
+  // --- Keyboard ---
   term.onData((key) => {
     if (mode === "file") {
       if (key === ":") enterCommandMode();
@@ -229,6 +246,6 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   });
 
-  // --- Initialize ---
+  // --- Init ---
   openFile("home.md");
 });
