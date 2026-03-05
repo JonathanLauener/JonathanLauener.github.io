@@ -1,217 +1,268 @@
 document.addEventListener("DOMContentLoaded", function () {
-  // --- Terminal & fit addon ---
-  const term = new Terminal({
-    cursorBlink: true,
-    fontFamily: "JetBrains Mono, monospace",
-    fontSize: 15,
-    convertEol: true,
-    scrollback: 0,
-    theme: {
-      background: "#1a1b26",
-      foreground: "#c0caf5",
-      cursor: "#c0caf5",
-      selectionBackground: "#33467C"
-    }
-  });
-  const fitAddon = new FitAddon.FitAddon();
-
-  // --- Fullscreen container ---
-  const container = document.getElementById("terminal");
-  container.style.width = "100vw";
-  container.style.height = "100vh";
-  container.style.margin = "0";
-  container.style.padding = "0";
-  container.style.overflow = "hidden";
-
-  term.loadAddon(fitAddon);
-  term.open(container);
-  fitAddon.fit();
-  container.style.visibility = "visible";
-
-  window.addEventListener("resize", () => {
-    fitAddon.fit();
-    screenHeight = term.rows - 1;
-    renderViewport();
-  });
-
-  // --- Viewport & file state ---
-  let screenHeight = term.rows - 1;
-  let fileBuffer = [];
-  let topLineIndex = 0;
-  let cursorY = 0;
-  let cursorX = 0;
-  let cursorIndex = 0; // netrw
-  let mode = "file"; // file | netrw | command
-  let commandBuffer = "";
-  let currentFile = "home.md";
-  let rnu = false;
-
-  const files = [
-    "home.md",
-    "projects.md",
-    "contact.md",
-    "projects/project1.md",
-    "projects/project2.md"
-  ];
-
-  // --- Helper functions ---
-  function writeLineHighlight(text) {
-    term.writeln(`\x1b[48;2;51;70;124m\x1b[38;2;192;202;245m${text}\x1b[0m`);
-  }
-
-  function hexToRgb(hex) {
-    const bigint = parseInt(hex.slice(1), 16);
-    return { r: (bigint >> 16) & 255, g: (bigint >> 8) & 255, b: bigint & 255 };
-  }
-
-  function writeColor(text, hex) {
-    const rgb = hexToRgb(hex);
-    term.write(`\x1b[38;2;${rgb.r};${rgb.g};${rgb.b}m${text}\x1b[0m`);
-  }
-
-  // --- Render viewport ---
-  function renderViewport() {
-    term.clear();
-    const visibleLines = fileBuffer.slice(topLineIndex, topLineIndex + screenHeight);
-    visibleLines.forEach((line, i) => {
-      if (mode === "file") {
-        const globalLine = topLineIndex + i + 1;
-        let prefix = "";
-        if (rnu) {
-          if (i === cursorY) prefix = `${globalLine}`.padStart(4) + " ";
-          else prefix = `${globalLine}`.padStart(4) + " ";
-        } else {
-          prefix = "    ";
+    // --- Terminal & fit addon ---
+    const term = new Terminal({
+        cursorBlink: true,
+        fontFamily: "JetBrains Mono, monospace",
+        fontSize: 15,
+        convertEol: true,
+        scrollback: 0,
+        theme: {
+            background: "#1a1b26",
+            foreground: "#c0caf5",
+            cursor: "#c0caf5",
+            selectionBackground: "#33467C"
         }
-        term.write(prefix + line + "\r\n");
-      } else if (mode === "netrw" && topLineIndex + i === cursorIndex) {
-        writeLineHighlight(line);
-      } else {
-        term.writeln(line);
-      }
     });
 
-    // --- Draw the actual cursor ---
-    if (mode === "file") {
-      const line = fileBuffer[topLineIndex + cursorY] || "";
-      cursorX = Math.max(0, Math.min(cursorX, line.length - 1));
-      const charUnderCursor = line[cursorX] || " ";
-      const prefixLength = rnu ? 5 : 0;
-      const cursorCol = prefixLength + cursorX + 1; // terminal cols start at 1
-      const cursorRow = cursorY + 1; // terminal rows start at 1
-      term.write(`\x1b[${cursorRow};${cursorCol}H`);
-      term.write(`\x1b[7m${charUnderCursor}\x1b[0m`);
-    }
+    const fitAddon = new FitAddon.FitAddon();
 
-    renderStatus("-- NORMAL --");
-  }
+    // --- Fullscreen container ---
+    const container = document.getElementById("terminal");
+    container.style.width = "100vw";
+    container.style.height = "100vh";
+    container.style.margin = "0";
+    container.style.padding = "0";
+    container.style.overflow = "hidden";
 
-  function renderStatus(text) {
-    term.write(`\x1b[${screenHeight + 1};1H`);
-    term.write(text.padEnd(term.cols));
-  }
+    term.loadAddon(fitAddon);
+    term.open(container);
+    fitAddon.fit();
 
-  async function openFile(filename) {
-    try {
-      const response = await fetch(filename);
-      const text = await response.text();
-      currentFile = filename;
-      mode = "file";
-      fileBuffer = text.split("\n");
-      topLineIndex = 0;
-      cursorY = 0;
-      cursorX = 0;
-      renderViewport();
-    } catch (err) {
-      fileBuffer = [`Error opening file: ${filename}`];
-      topLineIndex = 0;
-      cursorY = 0;
-      cursorX = 0;
-      renderViewport();
-    }
-  }
+    // Resize to fill viewport
+    container.style.visibility = "visible";
+    window.addEventListener("resize", () => {
+        fitAddon.fit();
+        screenHeight = term.rows - 1; // leave 1 row for status
+        renderViewport();
+    });
 
-  function openExplorer() {
-    mode = "netrw";
-    topLineIndex = 0;
-    cursorIndex = 4;
-    fileBuffer = [
-      "~/portfolio [netrw v1.0]",
-      "  Sorted by      name",
-      "  Quick Help: j/k:move <Enter>:open :q:quit",
-      "",
-      ...files
+    // --- Viewport & file state ---
+    let screenHeight = term.rows - 1; // leaves last row for status
+    let fileBuffer = [];
+    let topLineIndex = 0;
+    let cursorY = 0;
+    let cursorX = 0;
+    let cursorIndex = 0;
+
+    let mode = "file"; // file | netrw | command
+    let commandBuffer = "";
+    let currentFile = "home.md";
+    let rnu = false;
+
+    const files = [
+        "home.md",
+        "projects.md",
+        "contact.md",
+        "projects/project1.md",
+        "projects/project2.md"
     ];
-    renderViewport();
-  }
 
-  function enterCommandMode() {
-    mode = "command";
-    commandBuffer = "";
-    term.write("\r\n:");
-  }
-
-  function executeCommand(cmd) {
-    if (cmd === "Ex") { openExplorer(); return; }
-    if (cmd === "q") { openFile("home.md"); return; }
-    if (cmd.startsWith("e ")) {
-      const filename = cmd.slice(2).trim();
-      if (files.includes(filename)) openFile(filename);
-      else { fileBuffer = [`File not found: ${filename}`]; topLineIndex = 0; cursorY = 0; cursorX = 0; renderViewport(); }
-      return;
+    // --- Helper functions ---
+    function writeLineHighlight(text) {
+        term.writeln(`\x1b[48;2;51;70;124m\x1b[38;2;192;202;245m${text}\x1b[0m`);
     }
-    if (cmd === "set rnu") { rnu = true; mode="file"; renderViewport(); return; }
-    if (cmd === "set nornu") { rnu = false; mode="file"; renderViewport(); return; }
-  }
 
-  // --- File movement ---
-  function moveDownFile() {
-    const globalCursor = topLineIndex + cursorY;
-    if (globalCursor < fileBuffer.length-1) {
-      if(cursorY < screenHeight-1) cursorY++;
-      else topLineIndex++;
+    function hexToRgb(hex) {
+        const bigint = parseInt(hex.slice(1), 16);
+        return {
+            r: (bigint >> 16) & 255,
+            g: (bigint >> 8) & 255,
+            b: bigint & 255
+        };
     }
-    adjustCursorX();
-    renderViewport();
-  }
 
-  function moveUpFile() {
-    const globalCursor = topLineIndex + cursorY;
-    if(globalCursor>0){
-      if(cursorY>0) cursorY--;
-      else topLineIndex--;
+    function writeColor(text, hex) {
+        const rgb = hexToRgb(hex);
+        term.write(`\x1b[38;2;${rgb.r};${rgb.g};${rgb.b}m${text}\x1b[0m`);
     }
-    adjustCursorX();
-    renderViewport();
-  }
 
-  function moveRightFile(){ const line=fileBuffer[topLineIndex+cursorY]||""; if(cursorX<line.length-1) cursorX++; renderViewport(); }
-  function moveLeftFile(){ if(cursorX>0) cursorX--; renderViewport(); }
-  function adjustCursorX(){ const line=fileBuffer[topLineIndex+cursorY]||""; if(cursorX>=line.length) cursorX=line.length-1; if(cursorX<0) cursorX=0; }
+    // --- Render viewport ---
+    function renderViewport() {
+        term.clear();
+        const visibleLines = fileBuffer.slice(topLineIndex, topLineIndex + screenHeight);
+        visibleLines.forEach((line, i) => {
+            if (mode === "file") {
+                const globalLine = topLineIndex + i + 1;
+                let prefix = "";
+                if (rnu) {
+                    if (i === cursorY) prefix = `${globalLine}`.padStart(4) + " ";
+                    else prefix = `${Math.abs(globalLine - (topLineIndex + cursorY + 1))}`.padStart(4) + " ";
+                }
+                term.write(prefix + line + "\r\n");
+            } else if (mode === "netrw" && topLineIndex + i === cursorIndex) {
+                writeLineHighlight(line);
+            } else {
+                term.writeln(line);
+            }
+        });
 
-  // --- Netrw movement ---
-  function moveDown(){ if(cursorIndex<fileBuffer.length-1) cursorIndex++; if(cursorIndex>=topLineIndex+screenHeight) topLineIndex++; renderViewport(); }
-  function moveUp(){ if(cursorIndex>4) cursorIndex--; if(cursorIndex<topLineIndex) topLineIndex--; renderViewport(); }
-
-  // --- Keyboard ---
-  term.onData((key)=>{
-    if(mode==="file"){
-      if(key===":") enterCommandMode();
-      if(key==="j") moveDownFile();
-      if(key==="k") moveUpFile();
-      if(key==="h") moveLeftFile();
-      if(key==="l") moveRightFile();
-    } else if(mode==="netrw"){
-      if(key==="j") moveDown();
-      if(key==="k") moveUp();
-      if(key==="\r"){ const filename=fileBuffer[cursorIndex]; if(files.includes(filename)) openFile(filename); }
-      if(key===":") enterCommandMode();
-    } else if(mode==="command"){
-      if(key==="\r") executeCommand(commandBuffer.trim());
-      else if(key.charCodeAt(0)===127){ commandBuffer=commandBuffer.slice(0,-1); term.write("\b \b"); }
-      else{ commandBuffer+=key; term.write(key); }
+        // --- Draw the actual cursor (single-character overlay) ---
+        if (mode === "file") {
+            const line = fileBuffer[topLineIndex + cursorY] || "";
+            cursorX = Math.max(0, Math.min(cursorX, line.length - 1));
+            const charUnderCursor = line[cursorX] || " ";
+            const prefixLength = rnu ? 5 : 0; // 4 chars + 1 space
+            const cursorCol = prefixLength + cursorX + 1; // fixed: no extra +1
+            term.write(`\x1b[${cursorY + 1};${cursorCol}H`);
+            term.write(`\x1b[7m${charUnderCursor}\x1b[0m`);
+        }
     }
-  });
 
-  openFile("home.md");
+    // --- File operations ---
+    async function openFile(filename) {
+        try {
+            const response = await fetch(filename);
+            const text = await response.text();
+            currentFile = filename;
+            mode = "file";
+            fileBuffer = text.split("\n");
+            topLineIndex = 0;
+            cursorY = 0;
+            cursorX = 0;
+            renderViewport();
+        } catch (err) {
+            fileBuffer = [`Error opening file: ${filename}`];
+            topLineIndex = 0;
+            cursorY = 0;
+            cursorX = 0;
+            renderViewport();
+        }
+    }
+
+    function openExplorer() {
+        mode = "netrw";
+        topLineIndex = 0;
+        cursorIndex = 4;
+        fileBuffer = [
+            "~/portfolio",
+            "[netrw v1.0]",
+            " Sorted by name",
+            " Quick Help: j/k:move <Enter>:open :q:quit",
+            "",
+            ...files
+        ];
+        renderViewport();
+    }
+
+    function enterCommandMode() {
+        mode = "command";
+        commandBuffer = "";
+        term.write("\r\n:");
+    }
+
+    function executeCommand(cmd) {
+        if (cmd === "Ex") {
+            openExplorer();
+            return;
+        }
+        if (cmd === "q") {
+            openFile("home.md");
+            return;
+        }
+        if (cmd.startsWith("e ")) {
+            const filename = cmd.slice(2).trim();
+            if (files.includes(filename)) openFile(filename);
+            else {
+                fileBuffer = [`File not found: ${filename}`];
+                topLineIndex = 0;
+                cursorY = 0;
+                cursorX = 0;
+                renderViewport();
+            }
+            return;
+        }
+        if (cmd === "set rnu") {
+            rnu = true;
+            mode = "file";
+            renderViewport();
+            return;
+        }
+        if (cmd === "set nornu") {
+            rnu = false;
+            mode = "file";
+            renderViewport();
+            return;
+        }
+    }
+
+    // --- Cursor movement ---
+    function moveDownFile() {
+        const globalCursor = topLineIndex + cursorY;
+        if (globalCursor < fileBuffer.length - 1) {
+            if (cursorY < screenHeight - 1) cursorY++;
+            else topLineIndex++;
+        }
+        adjustCursorX();
+        renderViewport();
+    }
+
+    function moveUpFile() {
+        const globalCursor = topLineIndex + cursorY;
+        if (globalCursor > 0) {
+            if (cursorY > 0) cursorY--;
+            else topLineIndex--;
+        }
+        adjustCursorX();
+        renderViewport();
+    }
+
+    function moveRightFile() {
+        const line = fileBuffer[topLineIndex + cursorY] || "";
+        if (cursorX < line.length - 1) cursorX++;
+        renderViewport();
+    }
+
+    function moveLeftFile() {
+        if (cursorX > 0) cursorX--;
+        renderViewport();
+    }
+
+    function adjustCursorX() {
+        const line = fileBuffer[topLineIndex + cursorY] || "";
+        if (cursorX >= line.length) cursorX = line.length - 1;
+        if (cursorX < 0) cursorX = 0;
+    }
+
+    // --- Netrw movement ---
+    function moveDown() {
+        if (cursorIndex < fileBuffer.length - 1) cursorIndex++;
+        if (cursorIndex >= topLineIndex + screenHeight) topLineIndex++;
+        renderViewport();
+    }
+
+    function moveUp() {
+        if (cursorIndex > 4) cursorIndex--;
+        if (cursorIndex < topLineIndex) topLineIndex--;
+        renderViewport();
+    }
+
+    // --- Keyboard ---
+    term.onData((key) => {
+        if (mode === "file") {
+            if (key === ":") enterCommandMode();
+            if (key === "j") moveDownFile();
+            if (key === "k") moveUpFile();
+            if (key === "h") moveLeftFile();
+            if (key === "l") moveRightFile();
+        } else if (mode === "netrw") {
+            if (key === "j") moveDown();
+            if (key === "k") moveUp();
+            if (key === "\r") {
+                const filename = fileBuffer[cursorIndex];
+                if (files.includes(filename)) openFile(filename);
+            }
+            if (key === ":") enterCommandMode();
+        } else if (mode === "command") {
+            if (key === "\r") executeCommand(commandBuffer.trim());
+            else if (key.charCodeAt(0) === 127) {
+                commandBuffer = commandBuffer.slice(0, -1);
+                term.write("\b \b");
+            } else {
+                commandBuffer += key;
+                term.write(key);
+            }
+        }
+    });
+
+    openFile("home.md");
 });
