@@ -61,20 +61,31 @@ document.addEventListener("DOMContentLoaded", function () {
     
   }
 
-  function renderExplorer() {
-    term.clear();
-    term.scrollToTop();
-    term.writeln('"~/portfolio" [netrw]');
-    term.writeln("");
+function renderExplorer() {
+  term.clear();
+  term.scrollToTop();
+  // Header
+  writeColor(`"~/portfolio"`, "#7aa2f7"); // blue
+  term.writeln(" [netrw v1.0]");
+  term.writeln("");
 
-    files.forEach((file, index) => {
-      const prefix = index === cursorIndex ? "> " : "  ";
-      term.writeln(prefix + file);
-    });
+  writeColor("  Sorted by      name", "#565f89");
+  term.writeln("");
+  writeColor("  Quick Help: j/k:move  <Enter>:open  :q:quit", "#565f89");
+  term.writeln("");
+  term.writeln("");
 
-    renderStatus("-- NORMAL --");
-    
-  }
+  // File list
+  files.forEach((file, index) => {
+    if (index === cursorIndex) {
+      writeLineHighlight(file);
+    } else {
+      term.writeln("  " + file);
+    }
+  });
+
+  renderStatus("-- NORMAL --");
+}
 
   function renderStatus(text) {
     term.writeln("");
