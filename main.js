@@ -1,5 +1,3 @@
-import { Terminal } from '@xterm/xterm';
-
 
 const term = new Terminal({
   cursorBlink: true,
