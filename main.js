@@ -95,12 +95,15 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // --- Draw the actual cursor (single-character overlay) ---
     if (mode === "file") {
-      const line = fileBuffer[topLineIndex + cursorY] || "";
-      const charUnderCursor = line[cursorX] || " ";
-      term.write(`\x1b[${cursorY + 1};${(rnu?6:1) + cursorX}H`); // move cursor
-      term.write(`\x1b[7m${charUnderCursor}\x1b[0m`);
-      term.write(`\x1b[${screenHeight + 1};1H`); // move back to status line row
-    }
+    const line = fileBuffer[topLineIndex + cursorY] || "";
+    // Clamp cursorX so it never goes out of line bounds
+    cursorX = Math.max(0, Math.min(cursorX, line.length - 1));
+    const charUnderCursor = line[cursorX] || " ";
+    const prefixLength = rnu ? 5 : 0; // rnu shows 4 chars + 1 space
+    const cursorCol = prefixLength + 1 + cursorX; // +1 because xterm columns start at 1
+    term.write(`\x1b[${cursorY + 1};${cursorCol}H`);
+    term.write(`\x1b[7m${charUnderCursor}\x1b[0m`);
+}
 
     renderStatus("-- NORMAL --");
   }
