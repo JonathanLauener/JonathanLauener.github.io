@@ -94,16 +94,21 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     // --- Draw the actual cursor (single-character overlay) ---
-    if (mode === "file") {
+// --- Draw the actual cursor (single-character overlay) ---
+if (mode === "file") {
     const line = fileBuffer[topLineIndex + cursorY] || "";
     // Clamp cursorX so it never goes out of line bounds
     cursorX = Math.max(0, Math.min(cursorX, line.length - 1));
     const charUnderCursor = line[cursorX] || " ";
-    const prefixLength = rnu ? 5 : 0; // rnu shows 4 chars + 1 space
-    const cursorCol = prefixLength + 1 + cursorX; // +1 because xterm columns start at 1
+    
+    // FIX: Always account for the 4-space prefix (or 5 with rnu)
+    const prefixLength = rnu ? 5 : 4; // Changed from 0 to 4
+    
+    const cursorCol = prefixLength + cursorX + 1; // +1 because xterm columns start at 1
     term.write(`\x1b[${cursorY + 1};${cursorCol}H`);
     term.write(`\x1b[7m${charUnderCursor}\x1b[0m`);
 }
+
 
     renderStatus("-- NORMAL --");
   }
