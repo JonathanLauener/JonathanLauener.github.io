@@ -11,7 +11,6 @@ document.addEventListener("DOMContentLoaded", function () {
       selectionBackground: "#33467C"
     }
   });
-});
 
   term.open(document.getElementById("terminal"));
 
