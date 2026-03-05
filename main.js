@@ -16,10 +16,6 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   });
   const fitAddon = new FitAddon.FitAddon();
-  term.loadAddon(fitAddon);
-  term.open(container);
-  fitAddon.fit();
-  container.style.visibility = "visible"; // show only after terminal is ready
   // --- Fullscreen container ---
   const container = document.getElementById("terminal");
   container.style.width = "100vw";
@@ -27,10 +23,12 @@ document.addEventListener("DOMContentLoaded", function () {
   container.style.margin = "0";
   container.style.padding = "0";
   container.style.overflow = "hidden";
-
+  
+  term.loadAddon(fitAddon);
   term.open(container);
   fitAddon.fit(); // resize to fill viewport
-
+  container.style.visibility = "visible"; // show only after terminal is ready
+  
   window.addEventListener("resize", () => {
     fitAddon.fit();
     screenHeight = term.rows - 1;
