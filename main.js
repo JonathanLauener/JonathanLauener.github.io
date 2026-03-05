@@ -11,21 +11,49 @@ document.addEventListener("DOMContentLoaded", function () {
 
   term.open(document.getElementById("terminal"));
 
-  const files = [
-    "../",
-    "about.md",
-    "projects.md",
-    "contact.md"
-  ];
-
-  const fileContents = {
-    "about.md": "Hi, I'm a developer.\nWelcome to my portfolio.",
-    "projects.md": "Project 1\nProject 2\nProject 3",
-    "contact.md": "email@example.com"
-  };
-
-  let mode = "netrw";
+  let mode = "file";       // file | netrw | command
+  let currentFile = "home.md";
+  let files = [];
   let cursorIndex = 0;
+  let commandBuffer = "";
+
+  // --- Fetch file list manually (for now hardcoded list)
+  async function loadFileList() {
+    // Since GitHub Pages can't list directories dynamically,
+    // we define the index manually here.
+    files = [
+      "home.md",
+      "projects.md",
+      "contact.md",
+      "projects/project1.md",
+      "projects/project2.md"
+    ];
+  }
+
+  async function openFile(filename) {
+    try {
+      const response = await fetch(filename);
+      const text = await response.text();
+
+      currentFile = filename;
+      mode = "file";
+      renderFile(text);
+    } catch (err) {
+      term.writeln("Error opening file.");
+    }
+  }
+
+  function renderFile(content) {
+    term.clear();
+    term.writeln(`"${currentFile}"`);
+    term.writeln("");
+
+    content.split("\n").forEach(line => {
+      term.writeln(line);
+    });
+
+    renderStatus("-- NORMAL --");
+  }
 
   function renderExplorer() {
     term.clear();
@@ -33,68 +61,92 @@ document.addEventListener("DOMContentLoaded", function () {
     term.writeln("");
 
     files.forEach((file, index) => {
-      if (index === cursorIndex) {
-        term.writeln("> " + file);
-      } else {
-        term.writeln("  " + file);
-      }
+      const prefix = index === cursorIndex ? "> " : "  ";
+      term.writeln(prefix + file);
     });
 
-    term.writeln("");
-    term.write("-- NORMAL --");
+    renderStatus("-- NORMAL --");
   }
 
-  function renderFile(filename) {
-    term.clear();
-    term.writeln(`"${filename}"`);
+  function renderStatus(text) {
     term.writeln("");
-
-    const lines = fileContents[filename].split("\n");
-    lines.forEach(line => term.writeln(line));
-
-    term.writeln("");
-    term.write("-- NORMAL -- (press q to go back)");
+    term.write(text);
   }
 
-  renderExplorer();
+  function enterCommandMode() {
+    mode = "command";
+    commandBuffer = "";
+    term.write("\r\n:");
+  }
+
+  function executeCommand(cmd) {
+    if (cmd === "Ex") {
+      mode = "netrw";
+      cursorIndex = 0;
+      renderExplorer();
+    }
+
+    else if (cmd === "q") {
+      mode = "file";
+      openFile("home.md");
+    }
+
+    else if (cmd.startsWith("e ")) {
+      const filename = cmd.slice(2).trim();
+      if (files.includes(filename)) {
+        openFile(filename);
+      } else {
+        term.writeln("\r\nFile not found");
+      }
+    }
+
+    mode = "file";
+  }
 
   term.onData((key) => {
-    if (mode === "netrw") {
-      handleExplorerKeys(key);
-    } else if (mode === "file") {
-      handleFileKeys(key);
+    if (mode === "file") {
+      if (key === ":") {
+        enterCommandMode();
+      }
     }
-  });
 
-  function handleExplorerKeys(key) {
-    if (key === "j") {
-      if (cursorIndex < files.length - 1) {
+    else if (mode === "netrw") {
+      if (key === "j" && cursorIndex < files.length - 1) {
         cursorIndex++;
         renderExplorer();
       }
-    }
 
-    if (key === "k") {
-      if (cursorIndex > 0) {
+      if (key === "k" && cursorIndex > 0) {
         cursorIndex--;
         renderExplorer();
       }
+
+      if (key === "\r") {
+        openFile(files[cursorIndex]);
+      }
+
+      if (key === ":") {
+        enterCommandMode();
+      }
     }
 
-    if (key === "\r") { // Enter
-      const selected = files[cursorIndex];
+    else if (mode === "command") {
+      if (key === "\r") {
+        executeCommand(commandBuffer.trim());
+      }
 
-      if (selected === "../") return;
+      else if (key.charCodeAt(0) === 127) {
+        commandBuffer = commandBuffer.slice(0, -1);
+        term.write("\b \b");
+      }
 
-      mode = "file";
-      renderFile(selected);
+      else {
+        commandBuffer += key;
+        term.write(key);
+      }
     }
-  }
+  });
 
-  function handleFileKeys(key) {
-    if (key === "q") {
-      mode = "netrw";
-      renderExplorer();
-    }
-  }
+  // Initialize
+  loadFileList().then(() => openFile("home.md"));
 });
