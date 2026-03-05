@@ -13,23 +13,44 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   });
 
-  term.open(document.getElementById("terminal"));
+  const container = document.getElementById("terminal");
+  container.style.width = "100vw";
+  container.style.height = "100vh";
+  container.style.margin = "0";
+  container.style.padding = "0";
+  container.style.overflow = "hidden";
+
+  term.open(container);
+
+  // --- Dynamically resize terminal to fill page ---
+  function fitTerminal() {
+    const cols = Math.floor(container.clientWidth / term._core._renderService.dimensions.actualCellWidth);
+    const rows = Math.floor(container.clientHeight / term._core._renderService.dimensions.actualCellHeight);
+    term.resize(cols, rows);
+  }
+
+  window.addEventListener("resize", () => {
+    fitTerminal();
+    renderViewport(); // re-render viewport on resize
+  });
+
+  // Call once to fit initially
+  setTimeout(fitTerminal, 100);
 
   // --- Viewport settings ---
-  const screenHeight = 24; // visible rows
-  const screenWidth = 80;  // approximate width for horizontal movement
+  let screenHeight = 24;
+  const screenWidth = 80;
   let fileBuffer = [];
   let topLineIndex = 0;
   let cursorY = 0;
   let cursorX = 0;
-  let cursorIndex = 0; // netrw selected line
+  let cursorIndex = 0; // netrw
   let mode = "file"; // file | netrw | command
   let commandBuffer = "";
   let currentFile = "home.md";
 
-  let rnu = false; // relative line numbers flag
+  let rnu = false;
 
-  // --- Hardcoded file list ---
   const files = [
     "home.md",
     "projects.md",
@@ -38,7 +59,6 @@ document.addEventListener("DOMContentLoaded", function () {
     "projects/project2.md"
   ];
 
-  // --- Color helpers ---
   function writeLineHighlight(text) {
     term.writeln(`\x1b[48;2;51;70;124m\x1b[38;2;192;202;245m${text}\x1b[0m`);
   }
@@ -53,8 +73,10 @@ document.addEventListener("DOMContentLoaded", function () {
     term.write(`\x1b[38;2;${rgb.r};${rgb.g};${rgb.b}m${text}\x1b[0m`);
   }
 
-  // --- Render viewport ---
   function renderViewport() {
+    // Update screenHeight dynamically if terminal resized
+    screenHeight = term.rows - 1;
+
     term.clear();
     const visibleLines = fileBuffer.slice(topLineIndex, topLineIndex + screenHeight);
     visibleLines.forEach((line, i) => {
@@ -65,7 +87,7 @@ document.addEventListener("DOMContentLoaded", function () {
           if (i === cursorY) prefix = `${globalLine}`.padStart(4) + " ";
           else prefix = `${Math.abs(globalLine - (topLineIndex + cursorY + 1))}`.padStart(4) + " ";
         } else {
-          prefix = "    "; // 4 spaces if rnu off
+          prefix = "    ";
         }
 
         const left = line.slice(0, cursorX);
@@ -89,7 +111,6 @@ document.addEventListener("DOMContentLoaded", function () {
     term.write(text);
   }
 
-  // --- Load file ---
   async function openFile(filename) {
     try {
       const response = await fetch(filename);
@@ -110,7 +131,6 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   }
 
-  // --- Netrw ---
   function openExplorer() {
     mode = "netrw";
     topLineIndex = 0;
@@ -125,7 +145,6 @@ document.addEventListener("DOMContentLoaded", function () {
     renderViewport();
   }
 
-  // --- Command mode ---
   function enterCommandMode() {
     mode = "command";
     commandBuffer = "";
@@ -133,119 +152,56 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function executeCommand(cmd) {
-    if (cmd === "Ex") {
-      openExplorer();
-      return;
-    }
-    if (cmd === "q") {
-      openFile("home.md");
-      return;
-    }
+    if (cmd === "Ex") { openExplorer(); return; }
+    if (cmd === "q") { openFile("home.md"); return; }
     if (cmd.startsWith("e ")) {
       const filename = cmd.slice(2).trim();
       if (files.includes(filename)) openFile(filename);
-      else {
-        fileBuffer = [`File not found: ${filename}`];
-        topLineIndex = 0;
-        cursorY = 0;
-        cursorX = 0;
-        renderViewport();
-      }
+      else { fileBuffer = [`File not found: ${filename}`]; topLineIndex = 0; cursorY = 0; cursorX = 0; renderViewport(); }
       return;
     }
-    if (cmd === "set rnu") {
-      rnu = true;
-      mode = "file";
-      renderViewport();
-      return;
-    }
-    if (cmd === "set nornu") {
-      rnu = false;
-      mode = "file";
-      renderViewport();
-      return;
-    }
+    if (cmd === "set rnu") { rnu = true; mode="file"; renderViewport(); return; }
+    if (cmd === "set nornu") { rnu = false; mode="file"; renderViewport(); return; }
   }
 
-  // --- File mode movement ---
-  function moveDownFile() {
-    const globalCursor = topLineIndex + cursorY;
-    if (globalCursor < fileBuffer.length - 1) {
-      if (cursorY < screenHeight - 1) cursorY++;
-      else topLineIndex++;
-    }
-    adjustCursorX();
-    renderViewport();
+  // --- File movement ---
+  function moveDownFile() { const globalCursor = topLineIndex + cursorY;
+    if (globalCursor < fileBuffer.length-1){ if(cursorY < screenHeight-1) cursorY++; else topLineIndex++; }
+    adjustCursorX(); renderViewport();
   }
 
-  function moveUpFile() {
-    const globalCursor = topLineIndex + cursorY;
-    if (globalCursor > 0) {
-      if (cursorY > 0) cursorY--;
-      else topLineIndex--;
-    }
-    adjustCursorX();
-    renderViewport();
+  function moveUpFile() { const globalCursor = topLineIndex + cursorY;
+    if(globalCursor>0){ if(cursorY>0) cursorY--; else topLineIndex--; }
+    adjustCursorX(); renderViewport();
   }
 
-  function moveRightFile() {
-    const line = fileBuffer[topLineIndex + cursorY] || "";
-    if (cursorX < line.length - 1) cursorX++;
-    renderViewport();
-  }
-
-  function moveLeftFile() {
-    if (cursorX > 0) cursorX--;
-    renderViewport();
-  }
-
-  function adjustCursorX() {
-    const line = fileBuffer[topLineIndex + cursorY] || "";
-    if (cursorX >= line.length) cursorX = line.length - 1;
-    if (cursorX < 0) cursorX = 0;
-  }
+  function moveRightFile(){ const line = fileBuffer[topLineIndex+cursorY]||""; if(cursorX<line.length-1) cursorX++; renderViewport(); }
+  function moveLeftFile(){ if(cursorX>0) cursorX--; renderViewport(); }
+  function adjustCursorX(){ const line=fileBuffer[topLineIndex+cursorY]||""; if(cursorX>=line.length) cursorX=line.length-1; if(cursorX<0) cursorX=0; }
 
   // --- Netrw movement ---
-  function moveDown() {
-    if (cursorIndex < fileBuffer.length - 1) cursorIndex++;
-    if (cursorIndex >= topLineIndex + screenHeight) topLineIndex++;
-    renderViewport();
-  }
-
-  function moveUp() {
-    if (cursorIndex > 4) cursorIndex--;
-    if (cursorIndex < topLineIndex) topLineIndex--;
-    renderViewport();
-  }
+  function moveDown(){ if(cursorIndex<fileBuffer.length-1) cursorIndex++; if(cursorIndex>=topLineIndex+screenHeight) topLineIndex++; renderViewport(); }
+  function moveUp(){ if(cursorIndex>4) cursorIndex--; if(cursorIndex<topLineIndex) topLineIndex--; renderViewport(); }
 
   // --- Keyboard ---
-  term.onData((key) => {
-    if (mode === "file") {
-      if (key === ":") enterCommandMode();
-      if (key === "j") moveDownFile();
-      if (key === "k") moveUpFile();
-      if (key === "h") moveLeftFile();
-      if (key === "l") moveRightFile();
-    } else if (mode === "netrw") {
-      if (key === "j") moveDown();
-      if (key === "k") moveUp();
-      if (key === "\r") {
-        const filename = fileBuffer[cursorIndex];
-        if (files.includes(filename)) openFile(filename);
-      }
-      if (key === ":") enterCommandMode();
-    } else if (mode === "command") {
-      if (key === "\r") executeCommand(commandBuffer.trim());
-      else if (key.charCodeAt(0) === 127) {
-        commandBuffer = commandBuffer.slice(0, -1);
-        term.write("\b \b");
-      } else {
-        commandBuffer += key;
-        term.write(key);
-      }
+  term.onData((key)=>{
+    if(mode==="file"){
+      if(key===":") enterCommandMode();
+      if(key==="j") moveDownFile();
+      if(key==="k") moveUpFile();
+      if(key==="h") moveLeftFile();
+      if(key==="l") moveRightFile();
+    } else if(mode==="netrw"){
+      if(key==="j") moveDown();
+      if(key==="k") moveUp();
+      if(key==="\r"){ const filename=fileBuffer[cursorIndex]; if(files.includes(filename)) openFile(filename); }
+      if(key===":") enterCommandMode();
+    } else if(mode==="command"){
+      if(key==="\r") executeCommand(commandBuffer.trim());
+      else if(key.charCodeAt(0)===127){ commandBuffer=commandBuffer.slice(0,-1); term.write("\b \b"); }
+      else{ commandBuffer+=key; term.write(key); }
     }
   });
 
-  // --- Init ---
   openFile("home.md");
 });
