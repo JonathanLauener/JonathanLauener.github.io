@@ -16,16 +16,18 @@ document.addEventListener("DOMContentLoaded", function () {
   term.open(document.getElementById("terminal"));
 
   // --- Viewport settings ---
-  const screenHeight = 24; // number of visible lines
+  const screenHeight = 24; // visible rows
   let fileBuffer = [];     // all lines of current file/explorer
-  let topLineIndex = 0;    // first visible line in viewport
-  let cursorIndex = 0;     // selected line in viewport
+  let topLineIndex = 0;    // first visible line
+  let cursorY = 0;         // cursor row in viewport
+  let cursorX = 0;         // optional horizontal movement
+  let cursorIndex = 0;     // netrw selected line in fileBuffer
   let mode = "file";       // file | netrw | command
   let commandBuffer = "";
   let currentFile = "home.md";
 
   // --- Hardcoded file list ---
-  let files = [
+  const files = [
     "home.md",
     "projects.md",
     "contact.md",
@@ -33,7 +35,7 @@ document.addEventListener("DOMContentLoaded", function () {
     "projects/project2.md"
   ];
 
-  // --- Helpers for TokyoNight colors ---
+  // --- TokyoNight color helpers ---
   function writeColor(text, hex) {
     const rgb = hexToRgb(hex);
     term.write(`\x1b[38;2;${rgb.r};${rgb.g};${rgb.b}m${text}\x1b[0m`);
@@ -53,14 +55,15 @@ document.addEventListener("DOMContentLoaded", function () {
     term.clear();
     const visibleLines = fileBuffer.slice(topLineIndex, topLineIndex + screenHeight);
     visibleLines.forEach((line, i) => {
-      const globalIndex = topLineIndex + i;
-      if (mode === "netrw" && globalIndex === cursorIndex) {
+      if (mode === "file" && i === cursorY) {
+        writeLineHighlight(line);
+      } else if (mode === "netrw" && topLineIndex + i === cursorIndex) {
         writeLineHighlight(line);
       } else {
         term.writeln(line);
       }
     });
-    renderStatus("\n-- NORMAL --\n");
+    renderStatus("-- NORMAL --");
   }
 
   function renderStatus(text) {
@@ -77,10 +80,13 @@ document.addEventListener("DOMContentLoaded", function () {
       mode = "file";
       fileBuffer = text.split("\n");
       topLineIndex = 0;
+      cursorY = 0;
+      cursorX = 0;
       renderViewport();
     } catch (err) {
       fileBuffer = [`Error opening file: ${filename}`];
       topLineIndex = 0;
+      cursorY = 0;
       renderViewport();
     }
   }
@@ -122,42 +128,52 @@ document.addEventListener("DOMContentLoaded", function () {
       else {
         fileBuffer = [`File not found: ${filename}`];
         topLineIndex = 0;
+        cursorY = 0;
         renderViewport();
       }
       return;
     }
   }
 
-  // --- Scroll functions for j/k ---
-  function moveDown() {
-    if (mode === "netrw") {
-      if (cursorIndex < fileBuffer.length - 1) cursorIndex++;
-      // Scroll viewport if cursor goes past bottom
-      if (cursorIndex >= topLineIndex + screenHeight) topLineIndex++;
-      renderViewport();
-    } else if (mode === "file") {
-      if (topLineIndex + screenHeight < fileBuffer.length) topLineIndex++;
-      renderViewport();
+  // --- Vim-style cursor movement in file ---
+  function moveDownFile() {
+    if (cursorY < screenHeight - 1 && topLineIndex + cursorY + 1 < fileBuffer.length) {
+      cursorY++;
+    } else if (topLineIndex + screenHeight < fileBuffer.length) {
+      topLineIndex++;
     }
+    renderViewport();
+  }
+
+  function moveUpFile() {
+    if (cursorY > 0) {
+      cursorY--;
+    } else if (topLineIndex > 0) {
+      topLineIndex--;
+    }
+    renderViewport();
+  }
+
+  // --- NetRW scrolling ---
+  function moveDown() {
+    if (cursorIndex < fileBuffer.length - 1) cursorIndex++;
+    if (cursorIndex >= topLineIndex + screenHeight) topLineIndex++;
+    renderViewport();
   }
 
   function moveUp() {
-    if (mode === "netrw") {
-      if (cursorIndex > 4) cursorIndex--; // first 4 lines are header
-      if (cursorIndex < topLineIndex) topLineIndex--;
-      renderViewport();
-    } else if (mode === "file") {
-      if (topLineIndex > 0) topLineIndex--;
-      renderViewport();
-    }
+    if (cursorIndex > 4) cursorIndex--;
+    if (cursorIndex < topLineIndex) topLineIndex--;
+    renderViewport();
   }
 
   // --- Keyboard handling ---
   term.onData((key) => {
     if (mode === "file") {
       if (key === ":") enterCommandMode();
-      if (key === "j") moveDown();
-      if (key === "k") moveUp();
+      if (key === "j") moveDownFile();
+      if (key === "k") moveUpFile();
+      // h/l can be added for horizontal movement later
     } else if (mode === "netrw") {
       if (key === "j") moveDown();
       if (key === "k") moveUp();
@@ -168,7 +184,7 @@ document.addEventListener("DOMContentLoaded", function () {
       if (key === ":") enterCommandMode();
     } else if (mode === "command") {
       if (key === "\r") executeCommand(commandBuffer.trim());
-      else if (key.charCodeAt(0) === 127) { // backspace
+      else if (key.charCodeAt(0) === 127) {
         commandBuffer = commandBuffer.slice(0, -1);
         term.write("\b \b");
       } else {
