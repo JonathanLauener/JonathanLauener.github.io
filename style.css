@@ -10,9 +10,6 @@ html, body {
   width: 100vw;
 }
 
-.xterm-viewport {
-  overflow: hidden !important;
-}
 .xterm-screen canvas {
   image-rendering: pixelated;
 }
