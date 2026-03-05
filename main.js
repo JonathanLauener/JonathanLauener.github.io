@@ -45,6 +45,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
   function renderFile(content) {
     term.clear();
+    term.scrollToTop();
     term.writeln(`"${currentFile}"`);
     term.writeln("");
 
@@ -53,11 +54,12 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     renderStatus("-- NORMAL --");
-    term.scrollToTop();
+    
   }
 
   function renderExplorer() {
     term.clear();
+    term.scrollToTop();
     term.writeln('"~/portfolio" [netrw]');
     term.writeln("");
 
@@ -67,7 +69,7 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     renderStatus("-- NORMAL --");
-    term.scrollToTop();
+    
   }
 
   function renderStatus(text) {
